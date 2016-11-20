@@ -9,6 +9,7 @@ proc requirePackage { packageName } {
     }
 
     package require ${packageName}::sqlite3
+    puts $auto_path
     set auto_path $temp
     return true;
 }
@@ -191,7 +192,7 @@ proc StyleEntry { createdTodo } {
     global i;
 
     set todoFrame [frame .tableWindow.todoFrame$i]
-
+    set FrameDetails [frame .tableWindow.todoFrameDetails$i]
     set todoid [dict get $createdTodo id]
     set todotitle [dict get $createdTodo Title]
     
@@ -217,7 +218,9 @@ proc StyleEntry { createdTodo } {
     set detail [label $todoFrame.detail -text "${todocontent}..." -justify left -compound left -width 20 -relief sunken]
 
     image create photo removeTodo -file [file join images remove.gif]
+    image create photo openTodo -file [file join images open.gif]
     set todoRemove [button $todoFrame.btn-remove-todo -compound left -image removeTodo -relief flat]
+    set todoOpen [button $todoFrame.btn-open-todo -compound left -image openTodo -relief flat]
 
 
 
@@ -236,14 +239,69 @@ proc StyleEntry { createdTodo } {
     
     #pack $todoFrame -fill x -expand true -anchor nw
     grid $todoFrame -sticky news
+    grid $FrameDetails -sticky news
     #grid rowconfigure .tableWindow 0 -weight 1
     grid columnconfigure .tableWindow 0 -weight 1
-    grid $id $title $date $time $detail $todoRemove
-    bind $todoRemove <ButtonPress-1> [list RemoveTodo $todoFrame $todoid %W]
+    grid $id $title $date $time $detail $todoRemove $todoOpen
+    bind $todoRemove <ButtonPress-1> [list RemoveTodo $todoFrame $todoid $FrameDetails %W]
+    bind $todoOpen <ButtonPress-1> [list checkHeight $todoid $FrameDetails]
     incr i
 }
 
-proc RemoveTodo {parent todoid target} {
+proc checkHeight {todoid showContent} {
+    if { [$showContent cget -height] == 300 } {
+	CloseTodo $showContent
+	return 
+    }
+    
+    OpenTodo $todoid $showContent
+}
+proc CloseTodo {showContent} {
+    puts $showContent
+    foreach children [grid slave $showContent] {
+	grid forget $children
+    }
+    for {set i [$showContent cget -height] } {$i >= 0} { } {
+
+	$showContent configure -height $i
+	set i [expr {$i - 1}]
+	update idletasks
+    }
+    
+}
+proc OpenTodo {todoid showContent} {
+    global dbCommand
+
+    set dbCmd $dbCommand
+    $dbCmd foreach openTodo {SELECT * FROM TodoDb WHERE id=$todoid} {
+	
+	set tododay [dict get $openTodo Day]
+	set todomonth [dict get $openTodo Month]
+	set todoyear [dict get $openTodo Year]
+	
+	set tododate ${tododay}/${todomonth}/${todoyear}
+	
+	set todotime [dict get $openTodo Hour]:[dict get $openTodo Minute][dict get $openTodo AmPm]
+	
+	set todocontent [dict get $openTodo Content]
+
+
+
+	#set todoDateLabel [label $showContent.date-label -text "Date:-            $tododate"]
+	#set todoTimeLabel [label $showContent.time-label -text "Time:-            $todotime"]
+	#set todoContentLabel [label $showContent.content-label -text "$todocontent"]
+
+	#grid $todoDateLabel -sticky news
+	#grid $todoTimeLabel -sticky news
+	#grid $todoContentLabel -sticky news
+        for {set i 0} {$i <= 300} { } {
+	    $showContent configure -height $i
+	    set i [expr {$i + 50}]
+	    update idletasks
+	}
+    }
+}
+proc RemoveTodo {parent todoid showContent target} {
     global dbCommand
 
     set dbCmd $dbCommand
@@ -269,6 +327,7 @@ proc RemoveTodo {parent todoid target} {
     }
     
     grid forget $parent
+    grid forget $showContent
 }
 
 
