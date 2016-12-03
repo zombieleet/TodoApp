@@ -1,5 +1,46 @@
 #!/usr/bin/env wish
 
+
+proc createMenu { win } {
+    $win configure -menu .todoMainMenu
+
+    set todoMainMenu [menu .todoMainMenu -tearoff 0]
+
+    fileMenu $todoMainMenu
+    settingsMenu $todoMainMenu
+    aboutMenu $todoMainMenu
+    
+}
+
+proc fileMenu { todoMainMenu } {
+    $todoMainMenu add cascade -label "File" -menu $todoMainMenu.file
+    
+    set todoFileMenu [menu $todoMainMenu.file -tearoff 0]
+
+    $todoFileMenu add command -label "Add Todo" -underline 0 -command [list AddNewEntry ]
+    $todoFileMenu add command -label "Remove Todo" -underline 0 -command [list RemoveTodo]
+
+    $todoFileMenu add separator
+    $todoFileMenu add command -label "Load From File" -underline 0 -command [list LoadFromFile]
+
+    $todoFileMenu add command -label "Export As" -underline 0 -command [list ExportAs]
+}
+
+
+proc settingsMenu { todoMainMenu } {
+    $todoMainMenu add cascade -label "Settings" -menu $todoMainMenu.settings
+    
+    set todoSettingsMenu [menu $todoMainMenu.settings -tearoff 0]
+
+    $todoSettingsMenu add command -label "Font Style" -underline 0 -command [list setFont]
+    $todoSettingsMenu add command -label "Background Color" -underline 0 -command [list setBgColor]
+    $todoSettingsMenu add command -label "Font Color" -underline 1 -command [list setFontColor]
+}
+
+proc aboutMenu { todoMainMenu } {
+    $todoMainMenu add cascade -label "About" -menu $todoMainMenu.about
+}
+
 proc requirePackage { packageName } {
     set temp auto_path
     set auto_path [pwd]
@@ -33,7 +74,7 @@ proc Validate { textInput } {
 }
 proc AddNewEntry { } {
     global todo-title dayvar monthvar yearvar todo-hour todo-minute todo-amPm detailsDetails
-    
+    catch { destroy .tableWindow }
     set addNewEntryTopLevel [toplevel .addNewEntryWindows]
     focus .addNewEntryWindows
     grab .addNewEntryWindows
@@ -190,7 +231,9 @@ proc SetupEntryInterFace { {dbCmd {}} } {
 }
 proc StyleEntry { createdTodo } {
     global i;
-
+    
+    catch { createMenu .tableWindow }
+    
     set todoFrame [frame .tableWindow.todoFrame$i]
     set FrameDetails [frame .tableWindow.todoFrameDetails$i]
     set todoid [dict get $createdTodo id]
@@ -257,17 +300,20 @@ proc checkHeight {todoid showContent} {
     OpenTodo $todoid $showContent
 }
 proc CloseTodo {showContent} {
-    puts $showContent
-    foreach children [grid slave $showContent] {
-	grid forget $children
-    }
-    for {set i [$showContent cget -height] } {$i >= 0} { } {
+    
+    #foreach children [grid slave $showContent] {
+    #	grid forget $children
+    #}
 
+    grid forget $showContent
+    
+    
+    for {set i [$showContent cget -height] } {$i >= 0} { } {	    
 	$showContent configure -height $i
-	set i [expr {$i - 1}]
+	set i [expr {$i - 10}]
 	update idletasks
     }
-    
+
 }
 proc OpenTodo {todoid showContent} {
     global dbCommand
@@ -285,15 +331,40 @@ proc OpenTodo {todoid showContent} {
 	
 	set todocontent [dict get $openTodo Content]
 
+	grid $showContent -sticky news
+	
+	catch { set todoDateFrame [frame $showContent.date-frame ]
+	    set todoTimeFrame [frame $showContent.time-frame]
+	    set todoContentFrame [frame $showContent.content-label]
+	    
+	    set todoDateLabel [label $todoDateFrame.date -text "Date:-"]
+	    set todoDateValue [label $todoDateFrame.date-value -text "$tododate"]
+	    
+	    set todoTimeLabel [label $todoTimeFrame.time -text "Time:-"]
+	    set todoTimeValue [label $todoTimeFrame.time-value -text "$todotime"]
+	    
+	    set todoContentLabel [label $todoContentFrame.content -text "\nWhat you Planned to do:\n"]
+	    set todoContentValue [message $todoContentFrame.content-value -text "$todocontent" -aspect 1000]
+	    
+	    grid $todoDateFrame -sticky news
+	    grid $todoTimeFrame  -sticky news
+	    grid $todoContentFrame  -sticky news
+	
+	
+	    
+	    grid $todoDateLabel -row 0 -column 0
+	    grid $todoDateValue -row 0 -column 1
+	    
+	    grid $todoTimeLabel -row 1 -column 0
+	    grid $todoTimeValue -row 1 -column 1
+	    
+
+	    grid $todoContentLabel -row 2 -column 0
+	    
+	    
+	    grid $todoContentValue -row 3 -columnspan 100 -sticky news}
 
 
-	#set todoDateLabel [label $showContent.date-label -text "Date:-            $tododate"]
-	#set todoTimeLabel [label $showContent.time-label -text "Time:-            $todotime"]
-	#set todoContentLabel [label $showContent.content-label -text "$todocontent"]
-
-	#grid $todoDateLabel -sticky news
-	#grid $todoTimeLabel -sticky news
-	#grid $todoContentLabel -sticky news
         for {set i 0} {$i <= 300} { } {
 	    $showContent configure -height $i
 	    set i [expr {$i + 50}]
