@@ -18,8 +18,8 @@ proc fileMenu { todoMainMenu } {
     set todoFileMenu [menu $todoMainMenu.file -tearoff 0]
 
     $todoFileMenu add command -label "Add Todo" -underline 0 -command [list AddNewEntry ]
-    $todoFileMenu add command -label "Remove Todo" -underline 0 -command [list RemoveTodo]
-
+    $todoFileMenu add command -label "Remove Todo" -underline 0 -command [list RemoveSelectedTodo]
+    
     $todoFileMenu add separator
     $todoFileMenu add command -label "Load From File" -underline 0 -command [list LoadFromFile]
 
@@ -41,6 +41,102 @@ proc aboutMenu { todoMainMenu } {
     $todoMainMenu add cascade -label "About" -menu $todoMainMenu.about
 }
 
+proc RemoveSelectedTodo { } {
+    global j dbCommand
+
+    set dbCmd $dbCommand
+
+    destroy .tableWindow
+    
+    set topLevel [toplevel .todoListsToRemove]
+
+    grab $topLevel
+    focus $topLevel
+
+    set frBtn [frame $topLevel.frButtons]
+    
+    set selectAll [button $frBtn.select-all -text "Select All" -command [list selectAllTodos]]
+    set unselectAll [button $frBtn.unselect-all -text "Unselect All" -command [list unselectAllTodos]]
+    set delete [button $frBtn.delete -text "Delete " -command [list DeleteTodos] -state disabled]
+
+
+    set frLbTodo [frame $topLevel.frLbTodo]
+    set titleLabel [label $frLbTodo.titleLabel -text "Title"]
+    set idLabel [label $frLbTodo.idlb -text "ID"]
+    
+    pack $idLabel $titleLabel -side left -anchor nw -padx 38
+
+    pack configure $titleLabel -padx 12
+
+    
+    pack $frLbTodo  -fill x
+    set j 0
+    $dbCmd foreach row {SELECT * FROM TodoDb} {
+
+	StyleRemove $row
+    }
+    pack $selectAll $unselectAll $delete -side left -anchor nw
+
+    pack $frBtn -fill x
+}
+
+proc StyleRemove { createdTodo } {
+    global j
+    set topLevel .todoListsToRemove
+    set todoid [dict get $createdTodo id]
+    set todotitle [dict get $createdTodo Title]
+
+    set frLabels [frame $topLevel.frLabels$j]
+    set todoID [label $frLabels.idLabel -text "$todoid" ]
+    set todoTITLE [label $frLabels.idTitle -text "$todotitle"]
+    
+    if {0} {
+	set tododay [dict get $createdTodo Day]
+	set todomonth [dict get $createdTodo Month]
+	set todoyear [dict get $createdTodo Year]
+	
+	set tododate ${tododay}/${todomonth}/${todoyear}
+    
+	set todotime [dict get $createdTodo Hour]:[dict get $createdTodo Minute][dict get $createdTodo AmPm]
+	
+	set todocontent [string range [dict get $createdTodo Content] 0 10]
+    }
+
+
+    set chkBtn [checkbutton $frLabels.chkBtn_$todoid -variable $todoid -onvalue "false" -offvalue "true"]
+    pack $chkBtn $todoID $todoTITLE -side left -fill x -anchor nw
+
+
+    
+    pack configure $todoID -padx 15
+    pack configure $todoTITLE -padx 20
+    pack $frLabels  -fill x
+
+    
+    bind $chkBtn <Button-1> [list saveMe %W $todoid $todoid]
+    bind $todoID <ButtonPress-1> {[list $chkBtn select]}
+    bind $todoTITLE <ButtonPress-1> {[list $chkBtn select]}
+    incr j
+    
+}
+proc saveMe { path tdid realId} {
+    global Stack
+    upvar 1 $tdid trueOrFalse
+    set Stack($realId) [list $path $trueOrFalse]
+    
+    if {$trueOrFalse == "false" } {
+	puts $Stack($realId)
+	set Stack($realId) ""
+    }
+    s
+    
+}
+proc s { } {
+    global Stack
+    foreach x [array names Stack] {
+	puts $Stack($x)
+    }
+}
 proc requirePackage { packageName } {
     set temp auto_path
     set auto_path [pwd]
@@ -229,13 +325,16 @@ proc SetupEntryInterFace { {dbCmd {}} } {
 	StyleEntry $row
     }
 }
+
+
 proc StyleEntry { createdTodo } {
     global i;
     
     catch { createMenu .tableWindow }
-    
     set todoFrame [frame .tableWindow.todoFrame$i]
     set FrameDetails [frame .tableWindow.todoFrameDetails$i]
+
+    
     set todoid [dict get $createdTodo id]
     set todotitle [dict get $createdTodo Title]
     
@@ -246,7 +345,7 @@ proc StyleEntry { createdTodo } {
     set tododate ${tododay}/${todomonth}/${todoyear}
     
     set todotime [dict get $createdTodo Hour]:[dict get $createdTodo Minute][dict get $createdTodo AmPm]
-
+    
     set todocontent [string range [dict get $createdTodo Content] 0 10]
 
     
