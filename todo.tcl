@@ -90,17 +90,7 @@ proc StyleRemove { createdTodo } {
     set todoID [label $frLabels.idLabel -text "$todoid" ]
     set todoTITLE [label $frLabels.idTitle -text "$todotitle"]
     
-    if {0} {
-	set tododay [dict get $createdTodo Day]
-	set todomonth [dict get $createdTodo Month]
-	set todoyear [dict get $createdTodo Year]
-	
-	set tododate ${tododay}/${todomonth}/${todoyear}
-    
-	set todotime [dict get $createdTodo Hour]:[dict get $createdTodo Minute][dict get $createdTodo AmPm]
-	
-	set todocontent [string range [dict get $createdTodo Content] 0 10]
-    }
+
 
 
     set chkBtn [checkbutton $frLabels.chkBtn_$todoid -variable $todoid -onvalue "false" -offvalue "true"]
@@ -122,7 +112,7 @@ proc StyleRemove { createdTodo } {
 proc saveMe { path tdid realId} {
     global Stack
     upvar 1 $tdid trueOrFalse
-    set Stack($realId) [list $path $trueOrFalse]
+    set Stack($realId) [list $path $trueOrFalse $realId]
     
     if {$trueOrFalse == "false" } {
 	unset Stack($realId)
@@ -130,8 +120,26 @@ proc saveMe { path tdid realId} {
 }
 proc DeleteTodos { } {
     global Stack
+    
     foreach x [array names Stack] {
-	pack forget [lindex $Stack($x) 0]
+
+
+	set parent [lindex $Stack($x) 0]
+	set todoid [lindex $Stack($x) 2]
+	RemoveTodo $parent $todoid
+	
+	#set currIdLabel [lindex [pack slaves $parent] end]
+	#set currId [$currIdLabel cget -text]
+
+	#	puts $currId,$currIdLabel
+	
+	#set todoid [lindex $Stack($x) 2]
+	#pack forget [lindex $Stack($x) 0]
+	
+	#$dbCmd allrows {
+	 #   DELETE FROM TodoDb WHERE id=$todoid
+	#}
+	
     }
 }
 proc requirePackage { packageName } {
@@ -382,7 +390,7 @@ proc StyleEntry { createdTodo } {
     #grid rowconfigure .tableWindow 0 -weight 1
     grid columnconfigure .tableWindow 0 -weight 1
     grid $id $title $date $time $detail $todoRemove $todoOpen
-    bind $todoRemove <ButtonPress-1> [list RemoveTodo $todoFrame $todoid $FrameDetails %W]
+    bind $todoRemove <ButtonPress-1> [list RemoveTodo $todoFrame $todoid $FrameDetails]
     bind $todoOpen <ButtonPress-1> [list checkHeight $todoid $FrameDetails]
     incr i
 }
@@ -468,33 +476,47 @@ proc OpenTodo {todoid showContent} {
 	}
     }
 }
-proc RemoveTodo {parent todoid showContent target} {
+proc RemoveTodo {parent todoid { showContent {}}} {
     global dbCommand
 
     set dbCmd $dbCommand
+    
+    set err [catch {
+	
+	set currIdLabel [lindex [grid slaves $parent] end]
+	set currId [$currIdLabel cget -text]
+	
+	grid forget $parent
+	grid forget $showContent
+	
+    }]
 
-    set currIdLabel [lindex [grid slaves $parent] end]
-    set currId [$currIdLabel cget -text]
+    
+    if { $err } {
+	set currIdLabel [lindex [pack slaves $parent] 1]
+	set currId [$currIdLabel cget -text]
+	pack forget $parent
+    }
+    
     
     $dbCmd allrows {
 	DELETE FROM TodoDb WHERE id=$todoid
     }
+    
     set i 0;
     set j 1;
     set current [expr {$currId + $i}]
     set previous [expr {$currId + $j}]
     puts $current
     puts $previous
+
+    
     $dbCmd foreach update {UPDATE TodoDb SET id=$current WHERE id=$previous} {
-	puts "hi"
 	incr i;
 	incr j;
 	set current [expr {$currId + $i}]
 	set previous [expr {$currId + $j}]
     }
-    
-    grid forget $parent
-    grid forget $showContent
 }
 
 
