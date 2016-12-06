@@ -57,8 +57,8 @@ proc RemoveSelectedTodo { } {
     
     set selectAll [button $frBtn.select-all -text "Select All" -command [list selectAllTodos]]
     set unselectAll [button $frBtn.unselect-all -text "Unselect All" -command [list unselectAllTodos]]
-    set delete [button $frBtn.delete -text "Delete " -command [list DeleteTodos] -state disabled]
-
+    set delete [button $frBtn.delete -text "Delete " -command [list DeleteTodos]]
+    set cancel [button $frBtn.cancel -text "Cancel" -command { destroy .todoListsToRemove; SetupEntryInterFace}]
 
     set frLbTodo [frame $topLevel.frLbTodo]
     set titleLabel [label $frLbTodo.titleLabel -text "Title"]
@@ -75,7 +75,7 @@ proc RemoveSelectedTodo { } {
 
 	StyleRemove $row
     }
-    pack $selectAll $unselectAll $delete -side left -anchor nw
+    pack $selectAll $unselectAll $delete $cancel -side left -anchor nw
 
     pack $frBtn -fill x
 }
@@ -113,7 +113,7 @@ proc StyleRemove { createdTodo } {
     pack $frLabels  -fill x
 
     
-    bind $chkBtn <Button-1> [list saveMe %W $todoid $todoid]
+    bind $chkBtn <Button-1> [list saveMe $frLabels $todoid $todoid]
     bind $todoID <ButtonPress-1> {[list $chkBtn select]}
     bind $todoTITLE <ButtonPress-1> {[list $chkBtn select]}
     incr j
@@ -125,16 +125,13 @@ proc saveMe { path tdid realId} {
     set Stack($realId) [list $path $trueOrFalse]
     
     if {$trueOrFalse == "false" } {
-	puts $Stack($realId)
-	set Stack($realId) ""
+	unset Stack($realId)
     }
-    s
-    
 }
-proc s { } {
+proc DeleteTodos { } {
     global Stack
     foreach x [array names Stack] {
-	puts $Stack($x)
+	pack forget [lindex $Stack($x) 0]
     }
 }
 proc requirePackage { packageName } {
