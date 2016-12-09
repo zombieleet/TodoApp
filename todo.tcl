@@ -13,6 +13,7 @@ proc createMenu { win } {
 }
 
 proc fileMenu { todoMainMenu } {
+    
     $todoMainMenu add cascade -label "File" -menu $todoMainMenu.file
     
     set todoFileMenu [menu $todoMainMenu.file -tearoff 0]
@@ -39,6 +40,73 @@ proc settingsMenu { todoMainMenu } {
 
 proc aboutMenu { todoMainMenu } {
     $todoMainMenu add cascade -label "About" -menu $todoMainMenu.about
+}
+proc setFont { } {
+    
+    set topLevel [toplevel .setFont]
+    grab $topLevel
+    focus $topLevel
+    
+
+    wm title $topLevel "set font style"
+    wm protocol $topLevel WM_DELETE_WINDOW SaveFont
+    
+    set fontFrame [frame $topLevel.fontFrame]
+    set btnFrame [frame $topLevel.btnFrame]
+    set fontFamilies [font families]
+
+    set scrbY [scrollbar $fontFrame.scrllBars -orient vertical -command "$fontFrame.fntListbox yview"]
+    set fntListbox [listbox $fontFrame.fntListbox -listvariable fntFamily -width 50 -height 20 -yscrollcommand "$scrbY set" -selectmode single]
+
+    set fntTest [message $fontFrame.fntTest -aspect 3000 -text "the quick brown fox jumped over the fence" ]
+
+    set buttonOk [button $btnFrame.btnOk -text "Save" -command SaveFont]
+    set buttonCancel [button $btnFrame.btnCancel -text "Cancel" -command {destroy .setFont}]
+    
+    #$fntListbox insert end [split $fontFamilies]
+
+    foreach fnt $fontFamilies {
+	$fntListbox insert end $fnt
+    }
+    
+    pack $fontFrame -fill x
+    grid $fntListbox -row 0 -column 0 -sticky ns
+    grid $scrbY -row 0 -column 1 -sticky news
+    grid $fntTest -row 0 -column 2 -sticky ns
+    
+    pack $btnFrame -side left -fill x
+    pack $buttonOk $buttonCancel -side left
+
+    bind $fntListbox <ButtonPress-1> [list setGlobFont %W $fntTest]
+    
+}
+proc SaveFont { } {
+    global globalFont
+    if {[info exist globalFont]} {
+	destroy .setFont
+	return ;
+    }
+    set result [tk_messageBox -title "Font not selected"  -message "You did not choose a font" -icon info -type retrycancel]
+    if {$result == "cancel"} {
+	destroy .setFont
+    }
+    
+}
+proc setGlobFont { path fntTest} {
+    global globalFont
+    upvar $fntTest fontTest
+    
+    if {[$path curselection] == "" } return ;
+    
+    set fontFamily "[$path get [$path curselection]]"
+    set fontSize 15
+    set fontWeight normal
+    if {[info exist globalFont]} {
+	font delete $globalFont
+    }
+    set globalFont [font create -family $fontFamily -size 15 -weight $fontWeight]
+    
+    $fntTest configure -font $globalFont
 }
 
 proc RemoveSelectedTodo { } {
