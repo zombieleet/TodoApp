@@ -2,8 +2,9 @@
 
 
 proc createMenu { win } {
+    
     $win configure -menu .todoMainMenu
-
+    
     set todoMainMenu [menu .todoMainMenu -tearoff 0]
 
     fileMenu $todoMainMenu
@@ -11,6 +12,8 @@ proc createMenu { win } {
     aboutMenu $todoMainMenu
     
 }
+
+
 
 proc fileMenu { todoMainMenu } {
     
@@ -33,14 +36,54 @@ proc settingsMenu { todoMainMenu } {
     
     set todoSettingsMenu [menu $todoMainMenu.settings -tearoff 0]
 
+    
+    
+    
     $todoSettingsMenu add command -label "Font Style" -underline 0 -command [list setFont]
     $todoSettingsMenu add command -label "Background Color" -underline 0 -command [list setBgColor]
     $todoSettingsMenu add command -label "Font Color" -underline 1 -command [list setFontColor]
 }
 
 proc aboutMenu { todoMainMenu } {
-    $todoMainMenu add cascade -label "About" -menu $todoMainMenu.about
+    
+    $todoMainMenu add command -label "About" -command {
+	tk_messageBox -title "About" -message "This Todo Application is built with Tcl/Tk \n
+Author: 73mp74710n(zombieleet)\nVersion: 0.0.1\nGithubRepo:https://github.com/zombieleet/TodoApp\nTcl Website: http://tcl.tk\nTk Website: http://tcl-tk.tk" -icon info -type ok
+    }
+    
 }
+
+
+proc setFontColor {} {
+    global dbCommand
+    set dbCmd $dbCommand
+
+    set fgColor [tk_chooseColor]
+    $dbCmd allrows {
+	INSERT INTO ConfigDb (foreground) VALUES ($fgColor);
+    }
+    option add *foreground $fgColor
+    
+    destroy .tableWindow
+    SetupEntryInterFace
+}
+
+proc setBgColor {} {
+    global dbCommand
+    set dbCmd $dbCommand
+
+    
+    set bgColor [tk_chooseColor]
+    
+    $dbCmd allrows {
+	INSERT INTO ConfigDb (background) VALUES ($bgColor);
+    }
+    option add *background $bgColor
+    
+    destroy .tableWindow
+    SetupEntryInterFace
+}
+
 proc setFont { } {
     
     set topLevel [toplevel .setFont]
@@ -80,10 +123,22 @@ proc setFont { } {
     bind $fntListbox <ButtonPress-1> [list setGlobFont %W $fntTest]
     
 }
+
 proc SaveFont { } {
-    global globalFont
+    global globalFont dbCommand
+    set dbCmd $dbCommand
     if {[info exist globalFont]} {
+
+	$dbCmd allrows {
+	    INSERT INTO ConfigDb (font) VALUES ($globalFont);
+	}
+	
+	option add *font $globalFont
+
 	destroy .setFont
+	destroy .tableWindow
+	SetupEntryInterFace
+	
 	return ;
     }
     set result [tk_messageBox -title "Font not selected"  -message "You did not choose a font" -icon info -type retrycancel]
@@ -99,12 +154,12 @@ proc setGlobFont { path fntTest} {
     if {[$path curselection] == "" } return ;
     
     set fontFamily "[$path get [$path curselection]]"
-    set fontSize 15
+    set fontSize 12
     set fontWeight normal
     if {[info exist globalFont]} {
-	font delete $globalFont
+	unset globalFont
     }
-    set globalFont [font create -family $fontFamily -size 15 -weight $fontWeight]
+    set globalFont [list $fontFamily $fontSize $fontWeight]
     
     $fntTest configure -font $globalFont
 }
@@ -224,6 +279,7 @@ proc requirePackage { packageName } {
     return true;
 }
 proc createInterface { } {
+
     wm geometry . 360x124+355+175
     set todoMainFrame [frame .todoFrame ]
     set addNewEntryButton [button $todoMainFrame.addNewTodo -text "Add Entry" -command [list AddNewEntry] ]
@@ -285,7 +341,7 @@ proc AddNewEntry { } {
 
 
     set detailsTitle [label $TodoDetailsFrame.detailsTitle -text "What are you planning to do?"]
-    set detailsDetails [text $TodoDetailsFrame.text -yscrollcommand {.addNewEntryWindows.todoDetailsFrame.yview set} ]
+    set detailsDetails [text $TodoDetailsFrame.text -yscrollcommand {.addNewEntryWindows.todoDetailsFrame.yview set} -height 12]
     set YscrollBar [scrollbar $TodoDetailsFrame.yview -orient vertical \
 			-command {.addNewEntryWindows.todoDetailsFrame.text yview}]
     
@@ -328,7 +384,6 @@ proc SqliteDatabase { dbCmd } {
     global todo-title dayvar monthvar yearvar todo-hour todo-minute todo-amPm detailsDetails
 
 
-
     set title ${todo-title}
     set hour ${todo-hour}
     set minute ${todo-minute}
@@ -341,18 +396,29 @@ proc SqliteDatabase { dbCmd } {
     if {[regexp {TodoDb} [$dbCmd tables]] == 0 } {
 	$dbCmd allrows {
 	    CREATE TABLE TodoDb (
-	      id INTEGER PRIMARY KEY,
-	      Title TEXT,
-	      Day TEXT,
-	      Month TEXT,
-	      Year  TEXT,
-	      Time TEXT,
-	      Minute TEXT,
-	      Hour TEXT,
-	      AmPm TEXT,
-	      Content TEXT);
+				 id INTEGER PRIMARY KEY,
+				 Title TEXT,
+				 Day TEXT,
+				 Month TEXT,
+				 Year  TEXT,
+				 Time TEXT,
+				 Minute TEXT,
+				 Hour TEXT,
+				 AmPm TEXT,
+				 Content TEXT);
 	}
     }
+
+    if {[regexp {ConfigDb} [$dbCmd tables]] == 0} {
+	$dbCmd allrows {
+	    CREATE TABLE ConfigDb (
+				   foreground TEXT,
+				   background TEXT,
+				   font TEXT
+				   );
+	}
+    }
+
     
     $dbCmd allrows {
 	INSERT INTO TodoDb (Title,Day,Month,Year,Minute,Hour,AmPm,Content) VALUES ($title,$dayvar,$monthvar,$yearvar,$minute,$hour,$amPm,$content);
@@ -393,10 +459,36 @@ proc SetupEntryInterFace { {dbCmd {}} } {
     grid $id $title $date $time $todoDetail
     
     set i 1;
-    $dbCmd foreach row {SELECT * FROM TodoDb} {
-	
-	StyleEntry $row
+
+    
+    if { [catch {
+	$dbCmd foreach row {SELECT * FROM ConfigDb} {
+	    lappend configlist $row
+	}
+
+	foreach l $configlist {
+	    set key [lindex $l 0]
+	    set value [lindex $l 1]
+
+	    option add *${key} ${value}
+	}
+
+	$dbCmd foreach row {SELECT * FROM TodoDb} {
+	    StyleEntry $row
+	}
+    } err ] } {
+	destroy .tableWindow
+	set selection [tk_messageBox -title "No Todo in Database" \
+			   -message "You have not added any todo yet \n Do you want to add a new Todo" \
+			   -icon info -type yesno]
+
+	puts $err
+
+	if { $selection == "yes" } {
+	    AddNewEntry
+	}
     }
+
 }
 
 
