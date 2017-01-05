@@ -130,8 +130,8 @@ proc RemoveSelectedTodo { } {
 
     set frBtn [frame $topLevel.frButtons]
     
-    set selectAll [button $frBtn.select-all -text "Select All" ]
-    set unselectAll [button $frBtn.unselect-all -text "Unselect All" -command [list unselectAllTodos]]
+    # set selectAll [button $frBtn.select-all -text "Select All" ]
+    #set unselectAll [button $frBtn.unselect-all -text "Unselect All" -command [list unselectAllTodos]]
     set delete [button $frBtn.delete -text "Delete " -command [list DeleteTodos]]
     set cancel [button $frBtn.cancel -text "Cancel" -command { destroy .todoListsToRemove; SetupEntryInterFace}]
 
@@ -144,7 +144,7 @@ proc RemoveSelectedTodo { } {
     pack configure $titleLabel -padx 12
 
 
-    bind $selectAll <Button-1> [list selectAllTodos %W]
+    #bind $selectAll <Button-1> [list selectAllTodos %W]
     
     
     pack $frLbTodo  -fill x
@@ -153,25 +153,29 @@ proc RemoveSelectedTodo { } {
 
 	StyleRemove $row
     }
-    pack $selectAll $unselectAll $delete $cancel -side left -anchor nw
-
+    #pack $selectAll $unselectAll $delete $cancel -side left -anchor nw
+    pack $delete $cancel -side left -anchor nw
     pack $frBtn -fill x
 }
-proc selectAllTodos { path } {
-    set children [pack slave .todoListsToRemove]
-    if { $children != "" } {
-	foreach ch $children {
-	    if {[regexp {(frLabels)} $ch]} {
-		#puts $ch
-		set chkBtnNum [regexp {[[:digit:]]+} $ch num]
-		
-		${ch}.chkBtn_$num invoke
-	    }
-	}
-	$path configure -state disabled
-    }
-    
-}
+
+############################################################################
+#proc selectAllTodos { path } {
+#    global Stack
+#   set children [pack slave .todoListsToRemove]
+#   if { $children != "" } {
+#	foreach ch $children {
+#	    if {[regexp {(frLabels)} $ch]} {
+#		#puts $ch
+#		set chkBtnNum [regexp {[[:digit:]]+} $ch num]
+#		${ch}.chkBtn_$num invoke
+#
+#	    }
+#	}
+#	$path configure -state disabled
+#	bind $path <ButtonPress-1> {}
+#    }   
+#}#######################################################################
+
 proc StyleRemove { createdTodo } {
     global j frLabels todoid
     set topLevel .todoListsToRemove
@@ -207,7 +211,7 @@ proc saveMe { path tdid realId } {
     global Stack
     upvar 1 $tdid trueOrFalse
     set Stack($realId) [list $path $trueOrFalse $realId]
-    puts "[array names Stack] , $trueOrFalse"
+    puts "realId:$realId \n path:$path trueOrFalse:$trueOrFalse"
     if {$trueOrFalse == "false" } {
 	puts [array names Stack]
 	unset Stack($realId)
@@ -394,7 +398,6 @@ proc SetupEntryInterFace { } {
     
     global i
     
-    
     set TableWindow [toplevel .tableWindow]
     focus .tableWindow
     grab .tableWindow
@@ -432,7 +435,7 @@ proc SetupEntryInterFace { } {
 	    AddNewEntry
 	}
     }
-    
+    wm withdraw .
 }
 
 
@@ -513,8 +516,15 @@ proc checkHeight {todoid showContent} {
     OpenTodo $todoid $showContent
 }
 proc CloseTodo {showContent} {
-    
-    grid forget $showContent
+    foreach x [grid slave $showContent] {
+    	grid forget $x
+	# destroy the window. It should not exists
+	# This was done to fix a bug
+	# grid forget $x forgets the widgets, but the widget name still exists
+
+	destroy $x
+    }
+    #grid forget $showContent
     
     
     for {set i [$showContent cget -height] } {$i >= 0} { } {	    
@@ -538,39 +548,37 @@ proc OpenTodo {todoid showContent} {
 	
 	set todocontent [dict get $openTodo Content]
 
-	grid $showContent -sticky news
+	set todoDateFrame [frame $showContent.date-frame ]
+	set todoTimeFrame [frame $showContent.time-frame]
+	set todoContentFrame [frame $showContent.content-label]
 	
-	catch { set todoDateFrame [frame $showContent.date-frame ]
-	    set todoTimeFrame [frame $showContent.time-frame]
-	    set todoContentFrame [frame $showContent.content-label]
-	    
-	    set todoDateLabel [label $todoDateFrame.date -text "Date:-"]
-	    set todoDateValue [label $todoDateFrame.date-value -text "$tododate"]
-	    
-	    set todoTimeLabel [label $todoTimeFrame.time -text "Time:-"]
-	    set todoTimeValue [label $todoTimeFrame.time-value -text "$todotime"]
-	    
-	    set todoContentLabel [label $todoContentFrame.content -text "\nWhat you Planned to do:\n"]
-	    set todoContentValue [message $todoContentFrame.content-value -text "$todocontent" -aspect 1000]
-	    
-	    grid $todoDateFrame -sticky news
-	    grid $todoTimeFrame  -sticky news
-	    grid $todoContentFrame  -sticky news
+	set todoDateLabel [label $todoDateFrame.date -text "Date:-"]
+	set todoDateValue [label $todoDateFrame.date-value -text "$tododate"]
+	
+	set todoTimeLabel [label $todoTimeFrame.time -text "Time:-"]
+	set todoTimeValue [label $todoTimeFrame.time-value -text "$todotime"]
+	
+	set todoContentLabel [label $todoContentFrame.content -text "\nWhat you Planned to do:\n"]
+	set todoContentValue [message $todoContentFrame.content-value -text "$todocontent" -aspect 1000]
+	
+	grid $todoDateFrame -sticky news
+	grid $todoTimeFrame  -sticky news
+	grid $todoContentFrame  -sticky news
 	
 	
-	    
-	    grid $todoDateLabel -row 0 -column 0
-	    grid $todoDateValue -row 0 -column 1
-	    
-	    grid $todoTimeLabel -row 1 -column 0
-	    grid $todoTimeValue -row 1 -column 1
-	    
-
-	    grid $todoContentLabel -row 2 -column 0
-	    
-	    
-	    grid $todoContentValue -row 3 -columnspan 100 -sticky news}
-
+	
+	grid $todoDateLabel -row 0 -column 0
+	grid $todoDateValue -row 0 -column 1
+	
+	grid $todoTimeLabel -row 1 -column 0
+	grid $todoTimeValue -row 1 -column 1
+	
+	
+	grid $todoContentLabel -row 2 -column 0
+	
+	
+	grid $todoContentValue -row 3 -columnspan 100 -sticky news
+	
 
         for {set i 0} {$i <= 300} { } {
 	    $showContent configure -height $i
@@ -579,6 +587,8 @@ proc OpenTodo {todoid showContent} {
 	}
     }
 }
+
+
 proc RemoveTodo {parent todoid { showContent {}}} {
 
     
