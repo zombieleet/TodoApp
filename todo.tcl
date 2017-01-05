@@ -1,84 +1,39 @@
 #!/usr/bin/env wish
+package require tdbc
+package require tdbc::sqlite3
+::tdbc::sqlite3::connection create TodoDatabase TodoSqliteDatabase.sql
 
 
-proc createMenu { win } {
-    
-    $win configure -menu .todoMainMenu
-    
-    set todoMainMenu [menu .todoMainMenu -tearoff 0]
-
-    fileMenu $todoMainMenu
-    settingsMenu $todoMainMenu
-    aboutMenu $todoMainMenu
-    
-}
-
-
-
-proc fileMenu { todoMainMenu } {
-    
-    $todoMainMenu add cascade -label "File" -menu $todoMainMenu.file
-    
-    set todoFileMenu [menu $todoMainMenu.file -tearoff 0]
-
-    $todoFileMenu add command -label "Add Todo" -underline 0 -command [list AddNewEntry ]
-    $todoFileMenu add command -label "Remove Todo" -underline 0 -command [list RemoveSelectedTodo]
-    
-    $todoFileMenu add separator
-    $todoFileMenu add command -label "Load From File" -underline 0 -command [list LoadFromFile]
-
-    $todoFileMenu add command -label "Export As" -underline 0 -command [list ExportAs]
-}
-
-
-proc settingsMenu { todoMainMenu } {
-    $todoMainMenu add cascade -label "Settings" -menu $todoMainMenu.settings
-    
-    set todoSettingsMenu [menu $todoMainMenu.settings -tearoff 0]
-
-    
-    
-    
-    $todoSettingsMenu add command -label "Font Style" -underline 0 -command [list setFont]
-    $todoSettingsMenu add command -label "Background Color" -underline 0 -command [list setBgColor]
-    $todoSettingsMenu add command -label "Font Color" -underline 1 -command [list setFontColor]
-}
-
-proc aboutMenu { todoMainMenu } {
-    
-    $todoMainMenu add command -label "About" -command {
-	tk_messageBox -title "About" -message "This Todo Application is built with Tcl/Tk \n
-Author: 73mp74710n(zombieleet)\nVersion: 0.0.1\nGithubRepo:https://github.com/zombieleet/TodoApp\nTcl Website: http://tcl.tk\nTk Website: http://tcl-tk.tk" -icon info -type ok
-    }
-    
-}
+source menu.tcl
 
 
 proc setFontColor {} {
-    global dbCommand
-    set dbCmd $dbCommand
 
     set fgColor [tk_chooseColor]
-    $dbCmd allrows {
-	INSERT INTO ConfigDb (foreground) VALUES ($fgColor);
+    if { $fgColor != "" } {
+	
+	TodoDatabase allrows {
+	    INSERT INTO ConfigDb (foreground) VALUES ($fgColor);
+	}
+	option add *foreground $fgColor
     }
-    option add *foreground $fgColor
     
     destroy .tableWindow
     SetupEntryInterFace
 }
 
 proc setBgColor {} {
-    global dbCommand
-    set dbCmd $dbCommand
 
-    
     set bgColor [tk_chooseColor]
     
-    $dbCmd allrows {
-	INSERT INTO ConfigDb (background) VALUES ($bgColor);
+    if { $bgColor != "" } {
+	
+	TodoDatabase allrows {
+	    INSERT INTO ConfigDb (background) VALUES ($bgColor);
+	}
+	option add *background $bgColor
+	
     }
-    option add *background $bgColor
     
     destroy .tableWindow
     SetupEntryInterFace
@@ -106,7 +61,7 @@ proc setFont { } {
     set buttonOk [button $btnFrame.btnOk -text "Save" -command SaveFont]
     set buttonCancel [button $btnFrame.btnCancel -text "Cancel" -command {destroy .setFont}]
     
-    #$fntListbox insert end [split $fontFamilies]
+
 
     foreach fnt $fontFamilies {
 	$fntListbox insert end $fnt
@@ -125,11 +80,10 @@ proc setFont { } {
 }
 
 proc SaveFont { } {
-    global globalFont dbCommand
-    set dbCmd $dbCommand
+    global globalFont
     if {[info exist globalFont]} {
 
-	$dbCmd allrows {
+	TodoDatabase allrows {
 	    INSERT INTO ConfigDb (font) VALUES ($globalFont);
 	}
 	
@@ -165,9 +119,7 @@ proc setGlobFont { path fntTest} {
 }
 
 proc RemoveSelectedTodo { } {
-    global j dbCommand
-
-    set dbCmd $dbCommand
+    global j
 
     destroy .tableWindow
     
@@ -178,8 +130,8 @@ proc RemoveSelectedTodo { } {
 
     set frBtn [frame $topLevel.frButtons]
     
-    set selectAll [button $frBtn.select-all -text "Select All" -command [list selectAllTodos]]
-    set unselectAll [button $frBtn.unselect-all -text "Unselect All" -command [list unselectAllTodos]]
+    # set selectAll [button $frBtn.select-all -text "Select All" ]
+    #set unselectAll [button $frBtn.unselect-all -text "Unselect All" -command [list unselectAllTodos]]
     set delete [button $frBtn.delete -text "Delete " -command [list DeleteTodos]]
     set cancel [button $frBtn.cancel -text "Cancel" -command { destroy .todoListsToRemove; SetupEntryInterFace}]
 
@@ -191,20 +143,41 @@ proc RemoveSelectedTodo { } {
 
     pack configure $titleLabel -padx 12
 
+
+    #bind $selectAll <Button-1> [list selectAllTodos %W]
+    
     
     pack $frLbTodo  -fill x
     set j 0
-    $dbCmd foreach row {SELECT * FROM TodoDb} {
+    TodoDatabase foreach row {SELECT * FROM TodoDb} {
 
 	StyleRemove $row
     }
-    pack $selectAll $unselectAll $delete $cancel -side left -anchor nw
-
+    #pack $selectAll $unselectAll $delete $cancel -side left -anchor nw
+    pack $delete $cancel -side left -anchor nw
     pack $frBtn -fill x
 }
 
+############################################################################
+#proc selectAllTodos { path } {
+#    global Stack
+#   set children [pack slave .todoListsToRemove]
+#   if { $children != "" } {
+#	foreach ch $children {
+#	    if {[regexp {(frLabels)} $ch]} {
+#		#puts $ch
+#		set chkBtnNum [regexp {[[:digit:]]+} $ch num]
+#		${ch}.chkBtn_$num invoke
+#
+#	    }
+#	}
+#	$path configure -state disabled
+#	bind $path <ButtonPress-1> {}
+#    }   
+#}#######################################################################
+
 proc StyleRemove { createdTodo } {
-    global j
+    global j frLabels todoid
     set topLevel .todoListsToRemove
     set todoid [dict get $createdTodo id]
     set todotitle [dict get $createdTodo Title]
@@ -216,10 +189,11 @@ proc StyleRemove { createdTodo } {
 
 
 
-    set chkBtn [checkbutton $frLabels.chkBtn_$todoid -variable $todoid -onvalue "false" -offvalue "true"]
+    set chkBtn [checkbutton $frLabels.chkBtn_$j -variable $todoid -onvalue "false" -offvalue "true" ]
+    
     pack $chkBtn $todoID $todoTITLE -side left -fill x -anchor nw
-
-
+    
+    
     
     pack configure $todoID -padx 15
     pack configure $todoTITLE -padx 20
@@ -232,54 +206,47 @@ proc StyleRemove { createdTodo } {
     incr j
     
 }
-proc saveMe { path tdid realId} {
+
+proc saveMe { path tdid realId } {
     global Stack
     upvar 1 $tdid trueOrFalse
     set Stack($realId) [list $path $trueOrFalse $realId]
-    
+    puts "realId:$realId \n path:$path trueOrFalse:$trueOrFalse"
     if {$trueOrFalse == "false" } {
+	puts [array names Stack]
 	unset Stack($realId)
     }
 }
 proc DeleteTodos { } {
     global Stack
-    
     foreach x [array names Stack] {
-
 
 	set parent [lindex $Stack($x) 0]
 	set todoid [lindex $Stack($x) 2]
-	RemoveTodo $parent $todoid
-	
-	#set currIdLabel [lindex [pack slaves $parent] end]
-	#set currId [$currIdLabel cget -text]
 
-	#	puts $currId,$currIdLabel
 	
-	#set todoid [lindex $Stack($x) 2]
-	#pack forget [lindex $Stack($x) 0]
+	pack forget $parent
 	
-	#$dbCmd allrows {
-	 #   DELETE FROM TodoDb WHERE id=$todoid
-	#}
-	
+	TodoDatabase allrows {
+	    DELETE FROM TodoDb WHERE id=$todoid
+	}
+
     }
 }
-proc requirePackage { packageName } {
-    set temp auto_path
-    set auto_path [pwd]
-    if {[catch {package require $packageName}]} {
-	#tk_message -title "$packageName not Found"  -message "$packageName cannot be located" -icon info -type cancel
-	return false;
-    }
 
-    package require ${packageName}::sqlite3
-    puts $auto_path
-    set auto_path $temp
-    return true;
-}
 proc createInterface { } {
-
+    
+    catch {
+	TodoDatabase foreach row {SELECT * FROM ConfigDb} {
+	    lappend configlist $row
+	}
+    
+	foreach l $configlist {
+	    lassign $l key value
+	    option add *${key} ${value}
+	}
+    }
+    
     wm geometry . 360x124+355+175
     set todoMainFrame [frame .todoFrame ]
     set addNewEntryButton [button $todoMainFrame.addNewTodo -text "Add Entry" -command [list AddNewEntry] ]
@@ -287,7 +254,9 @@ proc createInterface { } {
     pack $todoMainFrame -fill both -expand true
     pack $addNewEntryButton -pady 29 -anchor nw  -padx 60 -side left
     pack $showEntryButton -pady 29 -anchor nw -side left
+    
 }
+
 proc Validate { textInput } {
     if {[string is integer $textInput]} {
 	if {[string length $textInput] <= 2} {
@@ -297,6 +266,7 @@ proc Validate { textInput } {
     }
     return 0;
 }
+
 proc AddNewEntry { } {
     global todo-title dayvar monthvar yearvar todo-hour todo-minute todo-amPm detailsDetails
     catch { destroy .tableWindow }
@@ -372,15 +342,12 @@ proc AddNewEntry { } {
 }
 
 proc SetUpDatabase { } {
-    set qq [requirePackage tdbc]
-    #bind $buttonPath <ButtonPress-1> {}
-    if {$qq eq "true"} {
-	catch {tdbc::sqlite3::connection create TodoDatabase TodoSqliteDatabase.sql} err
-	SqliteDatabase TodoDatabase
-    }
+    
+    catch {tdbc::sqlite3::connection create TodoDatabase TodoSqliteDatabase.sql} err
+    SqliteDatabase
 }
 
-proc SqliteDatabase { dbCmd } {
+proc SqliteDatabase { } {
     global todo-title dayvar monthvar yearvar todo-hour todo-minute todo-amPm detailsDetails
 
 
@@ -393,8 +360,8 @@ proc SqliteDatabase { dbCmd } {
     
     catch { destroy .addNewEntryWindows }
     
-    if {[regexp {TodoDb} [$dbCmd tables]] == 0 } {
-	$dbCmd allrows {
+    if {[regexp {TodoDb} [TodoDatabase tables]] == 0 } {
+	TodoDatabase allrows {
 	    CREATE TABLE TodoDb (
 				 id INTEGER PRIMARY KEY,
 				 Title TEXT,
@@ -409,8 +376,8 @@ proc SqliteDatabase { dbCmd } {
 	}
     }
 
-    if {[regexp {ConfigDb} [$dbCmd tables]] == 0} {
-	$dbCmd allrows {
+    if {[regexp {ConfigDb} [TodoDatabase tables]] == 0} {
+	TodoDatabase allrows {
 	    CREATE TABLE ConfigDb (
 				   foreground TEXT,
 				   background TEXT,
@@ -420,27 +387,17 @@ proc SqliteDatabase { dbCmd } {
     }
 
     
-    $dbCmd allrows {
+    TodoDatabase allrows {
 	INSERT INTO TodoDb (Title,Day,Month,Year,Minute,Hour,AmPm,Content) VALUES ($title,$dayvar,$monthvar,$yearvar,$minute,$hour,$amPm,$content);
     }
 
-    SetupEntryInterFace $dbCmd
+    SetupEntryInterFace
 }
 
-proc SetupEntryInterFace { {dbCmd {}} } {
-    global i dbCommand
+proc SetupEntryInterFace { } {
     
-    if { $dbCmd eq "" } {
-	
-	set qq [requirePackage tdbc]
-	
-	if {$qq eq "true"} {
-	    catch {tdbc::sqlite3::connection create TodoDatabase TodoSqliteDatabase.sql} err
-	    set dbCmd ::TodoDatabase
-	}
-
-    }
-    set dbCommand $dbCmd
+    global i
+    
     set TableWindow [toplevel .tableWindow]
     focus .tableWindow
     grab .tableWindow
@@ -454,28 +411,18 @@ proc SetupEntryInterFace { {dbCmd {}} } {
     set time [label $tableFrame.time -text "TIME" -relief raise -width 15]
     set todoDetail [label $tableFrame.todoDetail -text "TO DO" -relief raise -width 20]
     
-    #pack $tableFrame -fill x -expand true -side left -anchor nw
+
     grid $tableFrame -sticky news
     grid $id $title $date $time $todoDetail
     
     set i 1;
-
     
     if { [catch {
-	$dbCmd foreach row {SELECT * FROM ConfigDb} {
-	    lappend configlist $row
-	}
-
-	foreach l $configlist {
-	    set key [lindex $l 0]
-	    set value [lindex $l 1]
-
-	    option add *${key} ${value}
-	}
-
-	$dbCmd foreach row {SELECT * FROM TodoDb} {
+	
+	TodoDatabase foreach row {SELECT * FROM TodoDb} {
 	    StyleEntry $row
 	}
+	
     } err ] } {
 	destroy .tableWindow
 	set selection [tk_messageBox -title "No Todo in Database" \
@@ -488,7 +435,7 @@ proc SetupEntryInterFace { {dbCmd {}} } {
 	    AddNewEntry
 	}
     }
-
+    wm withdraw .
 }
 
 
@@ -526,10 +473,14 @@ proc StyleEntry { createdTodo } {
 
     image create photo removeTodo -file [file join images remove.gif]
     image create photo openTodo -file [file join images open.gif]
-    set todoRemove [button $todoFrame.btn-remove-todo -compound left -image removeTodo -relief flat]
+
+
+    set todoRemove [button $todoFrame.btn-remove-todo -compound left -image removeTodo -relief flat \
+			-command [list RemoveTodo $todoFrame $todoid $FrameDetails]]
+    
     set todoOpen [button $todoFrame.btn-open-todo -compound left -image openTodo -relief flat]
 
-
+    
 
     if { ($todomonth == [exec date "+%B"]) || ($todomonth != [exec date "+%B"]) } {
 	
@@ -550,8 +501,9 @@ proc StyleEntry { createdTodo } {
     #grid rowconfigure .tableWindow 0 -weight 1
     grid columnconfigure .tableWindow 0 -weight 1
     grid $id $title $date $time $detail $todoRemove $todoOpen
-    bind $todoRemove <ButtonPress-1> [list RemoveTodo $todoFrame $todoid $FrameDetails]
+    # bind $todoRemove <ButtonPress-1> [list RemoveTodo $todoFrame $todoid $FrameDetails]
     bind $todoOpen <ButtonPress-1> [list checkHeight $todoid $FrameDetails]
+
     incr i
 }
 
@@ -564,12 +516,15 @@ proc checkHeight {todoid showContent} {
     OpenTodo $todoid $showContent
 }
 proc CloseTodo {showContent} {
-    
-    #foreach children [grid slave $showContent] {
-    #	grid forget $children
-    #}
+    foreach x [grid slave $showContent] {
+    	grid forget $x
+	# destroy the window. It should not exists
+	# This was done to fix a bug
+	# grid forget $x forgets the widgets, but the widget name still exists
 
-    grid forget $showContent
+	destroy $x
+    }
+    #grid forget $showContent
     
     
     for {set i [$showContent cget -height] } {$i >= 0} { } {	    
@@ -580,10 +535,8 @@ proc CloseTodo {showContent} {
 
 }
 proc OpenTodo {todoid showContent} {
-    global dbCommand
 
-    set dbCmd $dbCommand
-    $dbCmd foreach openTodo {SELECT * FROM TodoDb WHERE id=$todoid} {
+    TodoDatabase foreach openTodo {SELECT * FROM TodoDb WHERE id=$todoid} {
 	
 	set tododay [dict get $openTodo Day]
 	set todomonth [dict get $openTodo Month]
@@ -595,39 +548,37 @@ proc OpenTodo {todoid showContent} {
 	
 	set todocontent [dict get $openTodo Content]
 
-	grid $showContent -sticky news
+	set todoDateFrame [frame $showContent.date-frame ]
+	set todoTimeFrame [frame $showContent.time-frame]
+	set todoContentFrame [frame $showContent.content-label]
 	
-	catch { set todoDateFrame [frame $showContent.date-frame ]
-	    set todoTimeFrame [frame $showContent.time-frame]
-	    set todoContentFrame [frame $showContent.content-label]
-	    
-	    set todoDateLabel [label $todoDateFrame.date -text "Date:-"]
-	    set todoDateValue [label $todoDateFrame.date-value -text "$tododate"]
-	    
-	    set todoTimeLabel [label $todoTimeFrame.time -text "Time:-"]
-	    set todoTimeValue [label $todoTimeFrame.time-value -text "$todotime"]
-	    
-	    set todoContentLabel [label $todoContentFrame.content -text "\nWhat you Planned to do:\n"]
-	    set todoContentValue [message $todoContentFrame.content-value -text "$todocontent" -aspect 1000]
-	    
-	    grid $todoDateFrame -sticky news
-	    grid $todoTimeFrame  -sticky news
-	    grid $todoContentFrame  -sticky news
+	set todoDateLabel [label $todoDateFrame.date -text "Date:-"]
+	set todoDateValue [label $todoDateFrame.date-value -text "$tododate"]
+	
+	set todoTimeLabel [label $todoTimeFrame.time -text "Time:-"]
+	set todoTimeValue [label $todoTimeFrame.time-value -text "$todotime"]
+	
+	set todoContentLabel [label $todoContentFrame.content -text "\nWhat you Planned to do:\n"]
+	set todoContentValue [message $todoContentFrame.content-value -text "$todocontent" -aspect 1000]
+	
+	grid $todoDateFrame -sticky news
+	grid $todoTimeFrame  -sticky news
+	grid $todoContentFrame  -sticky news
 	
 	
-	    
-	    grid $todoDateLabel -row 0 -column 0
-	    grid $todoDateValue -row 0 -column 1
-	    
-	    grid $todoTimeLabel -row 1 -column 0
-	    grid $todoTimeValue -row 1 -column 1
-	    
-
-	    grid $todoContentLabel -row 2 -column 0
-	    
-	    
-	    grid $todoContentValue -row 3 -columnspan 100 -sticky news}
-
+	
+	grid $todoDateLabel -row 0 -column 0
+	grid $todoDateValue -row 0 -column 1
+	
+	grid $todoTimeLabel -row 1 -column 0
+	grid $todoTimeValue -row 1 -column 1
+	
+	
+	grid $todoContentLabel -row 2 -column 0
+	
+	
+	grid $todoContentValue -row 3 -columnspan 100 -sticky news
+	
 
         for {set i 0} {$i <= 300} { } {
 	    $showContent configure -height $i
@@ -636,49 +587,56 @@ proc OpenTodo {todoid showContent} {
 	}
     }
 }
+
+
 proc RemoveTodo {parent todoid { showContent {}}} {
-    global dbCommand
-
-    set dbCmd $dbCommand
-    
-    set err [catch {
-	
-	set currIdLabel [lindex [grid slaves $parent] end]
-	set currId [$currIdLabel cget -text]
-	
-	grid forget $parent
-	grid forget $showContent
-	
-    }]
 
     
-    if { $err } {
-	set currIdLabel [lindex [pack slaves $parent] 1]
-	set currId [$currIdLabel cget -text]
-	pack forget $parent
-    }
     
+    grid forget $parent
+    grid forget $showContent	
+
+
     
-    $dbCmd allrows {
+    TodoDatabase allrows {
 	DELETE FROM TodoDb WHERE id=$todoid
     }
-    
-    set i 0;
-    set j 1;
-    set current [expr {$currId + $i}]
-    set previous [expr {$currId + $j}]
-    puts $current
-    puts $previous
+
 
     
-    $dbCmd foreach update {UPDATE TodoDb SET id=$current WHERE id=$previous} {
-	incr i;
-	incr j;
+    
+    if { 0 } {
+	set currId [${parent}.id cget -text]
+	TodoDatabase allrows {
+	    DELETE FROM TodoDb WHERE id=$todoid
+	}
+	
+	set i 0;
+	set j 1;
 	set current [expr {$currId + $i}]
 	set previous [expr {$currId + $j}]
+	puts "$current $previous"
+	while { 1 }  {
+	    #TodoDatabase foreach update {UPDATE TodoDb SET id=$current WHERE id=$previous} {
+	    #incr i;
+	    #incr j;
+	    #set current [expr {$currId + $i}]
+	    #set previous [expr {$currId + $j}]
+	    #}
+	    incr i;
+	    incr j;
+	    set current [expr {$currId + $i} ]
+	    set previous [expr {$currId + $j}]
+	    break; 
+	}
+	
+
+	destroy .tableWindow
+	SetupEntryInterFace
     }
+
+    
 }
 
 
 createInterface
-
