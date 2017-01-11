@@ -23,9 +23,8 @@ proc fileMenu { todoMainMenu } {
     $todoFileMenu add command -label "Remove Todo" -underline 0 -command [list RemoveSelectedTodo]
     
     $todoFileMenu add separator
-    $todoFileMenu add command -label "Load From File" -underline 0 -command [list LoadFromFile]
-
-    $todoFileMenu add command -label "Export As" -underline 0 -command [list ExportAs]
+    #$todoFileMenu add command -label "Load From File" -underline 0 -command [list LoadFromFile]
+    #$todoFileMenu add command -label "Export As" -underline 0 -command [list ExportAs]
 }
 
 
